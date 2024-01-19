@@ -7,7 +7,7 @@ from collections import defaultdict
 #streamlit run SPC_text.py
 def dfs(graph, start, path=[]):
     path = path + [start]
-    print(path)  # 打印当前路径，你可以选择保存到列表或其他地方
+    #print(path)  # 打印当前路径，你可以选择保存到列表或其他地方
     if not graph[start]:  # 检查是否还有下一个节点
         return path  # 返回当前路径（当没有下一个节点时）
     paths = []
@@ -27,7 +27,9 @@ start_node = st.text_input('请输入要追溯的批号', '批号')
 st.write('当前输入的批号是', start_node)
 
 uploaded_file = st.file_uploader("请上传总表")
-st.write("没查到可能是1：数据质量不行。2.真的没有对应批次")
+st.write("没查到可能是1：数据质量不行.2.真的没有对应批次.3.标点符号")
+output_data=[]
+df2 = pd.DataFrame()
 if uploaded_file!=None :
 #处理数据
  df=get_data(uploaded_file,"Sheet1",header=0)
@@ -36,21 +38,24 @@ if uploaded_file!=None :
  output_list = df['输出批号'].tolist()
  for i in range(len(input_list)):
     graph[output_list[i]].append(input_list[i])
- paths = dfs(graph, start_node)
+ paths = dfs(graph, start_node.replace(" ",""))
  st.write(start_node)
  st.write('原始数据')
  st.write(paths)
  st.write('修改后的数据')
- for i in range(len(paths)):
-  tt=paths[i]
-  tt=str(tt)
-  list_temp = []
-  tt = tt.replace("[", "").replace("]", "").replace("'", "")
-  tt=tt.split(",")
-  for j in range(len(tt)):
-     list_temp.append(tt[j].replace(" ",""))
-  list_temp = list(dict.fromkeys(list_temp))
-  st.write(list_temp)
+ paths=str(paths)
+ data=paths.split("],")
+ for m in range(len(data)):
+     tt=data[m]
+     tt = tt.replace("[", "").replace("]", "").replace("'", "")
+     tt = tt.split(",")
+     output_data.append(tt)
+ for lst in output_data:
+    df2 = df2._append(pd.DataFrame(lst).transpose())
+ st.write(df2)
+
+
+
 
 
 
