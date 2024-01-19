@@ -27,10 +27,10 @@ start_node = st.text_input('请输入要追溯的批号', '批号')
 st.write('当前输入的批号是', start_node)
 
 uploaded_file = st.file_uploader("请上传总表")
+st.write("没查到可能是1：数据质量不行。2.真的没有对应批次")
 if uploaded_file!=None :
 #处理数据
  df=get_data(uploaded_file,"Sheet1",header=0)
- st.write(df)
  graph = defaultdict(list)
  input_list = df['投入批号'].tolist()
  output_list = df['输出批号'].tolist()
