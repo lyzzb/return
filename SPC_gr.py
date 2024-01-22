@@ -1,4 +1,5 @@
 # coding=utf-8
+import networkx as nx
 import numpy as np
 import streamlit as st
 import re
@@ -27,7 +28,7 @@ start_node = st.text_input('请输入要追溯的批号', '批号')
 st.write('当前输入的批号是', start_node)
 
 uploaded_file = st.file_uploader("请上传总表")
-st.write("没查到可能是1：数据质量不行.2.真的没有对应批次.3.标点符号")
+st.write("没查到可能是1：数据质量不行.2.真的没有对应批次.3.标点符号(括号、空格)")
 output_data=[]
 df2 = pd.DataFrame()
 if uploaded_file!=None :
@@ -36,18 +37,21 @@ if uploaded_file!=None :
  graph = defaultdict(list)
  input_list = df['投入批号'].tolist()
  output_list = df['输出批号'].tolist()
+
+ for  i in range(len(input_list)):
+    input_list[i]=str(input_list[i]).replace(" ","")
+ for i in range(len(output_list)):
+    output_list[i] = str(output_list[i]).replace(" ", "")
+
  for i in range(len(input_list)):
     graph[output_list[i]].append(input_list[i])
  paths = dfs(graph, start_node.replace(" ",""))
  st.write(start_node)
- st.write('原始数据')
- st.write(paths)
- st.write('修改后的数据')
  paths=str(paths)
  data=paths.split("],")
  for m in range(len(data)):
      tt=data[m]
-     tt = tt.replace("[", "").replace("]", "").replace("'", "")
+     tt = tt.replace("[", "").replace("]", "").replace("'", "").replace(" ","")
      tt = tt.split(",")
      output_data.append(tt)
  for lst in output_data:
