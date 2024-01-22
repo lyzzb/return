@@ -1,5 +1,4 @@
 # coding=utf-8
-import networkx as nx
 import numpy as np
 import streamlit as st
 import re
@@ -37,15 +36,15 @@ if uploaded_file!=None :
  graph = defaultdict(list)
  input_list = df['投入批号'].tolist()
  output_list = df['输出批号'].tolist()
-
  for  i in range(len(input_list)):
     input_list[i]=str(input_list[i]).replace(" ","")
  for i in range(len(output_list)):
     output_list[i] = str(output_list[i]).replace(" ", "")
-
  for i in range(len(input_list)):
     graph[output_list[i]].append(input_list[i])
  paths = dfs(graph, start_node.replace(" ",""))
+ st.write("原始数据")
+ st.write(paths)
  st.write(start_node)
  paths=str(paths)
  data=paths.split("],")
