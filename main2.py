@@ -9,7 +9,8 @@ add_page_title()
 show_pages(
     [
 
-        Page("SPC2.py", "SPC1"),
-        Page("SPC.py", "图追溯")
+        Page("SPC_gr.py", "真实追溯"),
+        Page("outlier_detection.py", "异常检测"),
+        Page("regression_analysis_gr.py", "回归分析")
     ]
 )
