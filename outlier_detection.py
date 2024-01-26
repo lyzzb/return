@@ -12,6 +12,10 @@ import plotly.graph_objects as go
 from sklearn.cluster import KMeans
 from sklearn.cluster import DBSCAN
 from sklearn.mixture import GaussianMixture
+from sklearn.svm import OneClassSVM
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import MinMaxScaler
+import  numpy as np
 #streamlit run ceshi.py
 #异常检测，无监督学习
 def get_exception_data(input_list,df_index,df_value):
@@ -42,6 +46,8 @@ uploaded_file = st.file_uploader("上传xlsx文件")
 if uploaded_file==None:
     st.stop()
 df = pd.read_excel(uploaded_file, engine="openpyxl")
+#file_path="D:\回溯数据来源\\成品数据改.xlsx"
+#df = pd.read_excel(file_path, engine="openpyxl")
 df=df.drop_duplicates()
 #index
 df_index=df.iloc[:,0]
@@ -57,7 +63,7 @@ if len(options)==0:
     st.stop()
 df=df.loc[:, options]
 data = df.values
-tab1, tab2, tab3,tab4,tab5 = st.tabs(["LOF异常检测", "孤立森林检测", "Kmean异常检测","DBSCAN异常检测","高斯混合模型"])
+tab1, tab2, tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs(["LOF检测", "孤立森林检测", "Kmean检测","DBSCAN检测","高斯混合模型","One-Class SVM","自编码器","随机投影"])
 with tab1:
    st.header("LOF异常检测")
    option1 = st.selectbox(
@@ -72,7 +78,6 @@ with tab1:
    res = clf.fit_predict(data)
    value1=df.loc[:, option1].tolist()
    exception_indices,exception_value = get_exception_data(res, df_index,value1)
-
    fig = go.Figure()
    # 绘制用户数折线图
    fig.add_trace(go.Scatter(x=df_index, y=df.loc[:, option1], name='趋势图', mode='lines'))
@@ -114,7 +119,7 @@ with tab2:
    fig1.add_trace(go.Scatter(x=iso_exception_indices, y=iso_exception_value, mode='markers', name='孤立森林异常点',
                              marker_color='red'))
    st.plotly_chart(fig1, theme="streamlit", use_container_width=True)
-   st.write(iso_exception_value)
+   st.write(iso_exception_indices)
 with tab3:
     st.header("Kmean")
     option3 = st.selectbox(
@@ -135,7 +140,7 @@ with tab3:
     fig2.add_trace(go.Scatter(x=Kmean_exception_indices, y=Kmean_exception_value, mode='markers', name='K均值异常点',
                               marker_color='red'))
     st.plotly_chart(fig2, theme="streamlit", use_container_width=True)
-    st.write(Kmean_exception_value)
+    st.write(Kmean_exception_indices)
 with tab4:
     st.header("DBSCAN")
     option4 = st.selectbox(
@@ -160,7 +165,7 @@ with tab4:
     fig3.add_trace(go.Scatter(x=DBSCAN_exception_indices, y=DBSCAN_exception_value, mode='markers', name='DBSCAN异常点',
                               marker_color='red'))
     st.plotly_chart(fig3, theme="streamlit", use_container_width=True)
-    st.write(DBSCAN_exception_value)
+    st.write(DBSCAN_exception_indices)
 with tab5:
     st.header("高斯混合模型")
     option5 = st.selectbox(
@@ -185,4 +190,78 @@ with tab5:
                               marker_color='red'))
 
     st.plotly_chart(fig4, theme="streamlit", use_container_width=True)
-    st.write(gmm_exception_value)
+    st.write(gmm_exception_indices)
+with tab6:
+    st.header("One-Class SVM异常检测")
+    option6 = st.selectbox(
+        'One-Class SVM请选择其中一个指标作图',
+        tuple(options))
+    st.write("你选择的是", option6)
+    st.write("0ne-Class SVM参数设定")
+    clf2 = OneClassSVM()
+    outliers2 = clf2.fit_predict(data)
+    value6 = df.loc[:, option6].tolist()
+    one_class_exception_indices, one_class_exception_value = get_exception_data(outliers2, df_index, value6)
+    fig5= go.Figure()
+    fig5.add_trace(go.Scatter(x=df_index, y=df.loc[:, option6], name='趋势图', mode='lines'))
+    # 绘制上下限、均值
+    fig5.add_trace(go.Scatter(x=df_index, y=[df.loc[:, option6].mean()] * len(df_index), name='均值',
+                              mode='lines', line_color="red"))
+
+    fig5.add_trace(go.Scatter(x=one_class_exception_indices, y=one_class_exception_value, mode='markers', name='One-Class SVM',
+                              marker_color='red'))
+    st.plotly_chart(fig5, theme="streamlit", use_container_width=True)
+    st.write(one_class_exception_indices)
+with tab7:
+    st.header("自编码器异常检测")
+    option7 = st.selectbox(
+        '自编码器请选择其中一个指标作图',
+        tuple(options))
+    st.write("你选择的是", option7)
+    st.write("自编码器参数设定")
+    scaler = MinMaxScaler()
+    data_scaled = scaler.fit_transform(data)
+    clf7 = PCA(n_components=1)
+    data_pca = clf7.fit_transform(data_scaled)
+    reconstructed_data = clf7.inverse_transform(data_pca)
+    reconstruction_error = np.mean((data_scaled - reconstructed_data) ** 2, axis=1)
+    threshold = np.percentile(reconstruction_error, 95)
+    outliers7 = (reconstruction_error < threshold).astype(int)
+    value7 = df.loc[:, option7].tolist()
+    zbm_exception_indices, zbm_exception_value = get_exception_data(outliers7, df_index, value7)
+    fig6 = go.Figure()
+    fig6.add_trace(go.Scatter(x=df_index, y=df.loc[:, option7], name='趋势图', mode='lines'))
+    # 绘制上下限、均值
+    fig6.add_trace(go.Scatter(x=df_index, y=[df.loc[:, option7].mean()] * len(df_index), name='均值',
+                              mode='lines', line_color="red"))
+    fig6.add_trace(
+        go.Scatter(x=zbm_exception_indices, y=zbm_exception_value, mode='markers', name='自编码器',
+                   marker_color='red'))
+    st.plotly_chart(fig6, theme="streamlit", use_container_width=True)
+    st.write(zbm_exception_indices)
+with tab8:
+    st.header("随机投影异常检测")
+    option8 = st.selectbox(
+        '随机投影请选择其中一个指标作图',
+        tuple(options))
+    st.write("你选择的是", option8)
+    st.write("随机投影参数设定")
+    scaler = MinMaxScaler()
+    data_scaled = scaler.fit_transform(data)
+    clf8 = PCA(n_components=1, random_state=0)
+    data_pca = clf8.fit_transform(data_scaled)
+    outliers8 = ((data_scaled - clf8.inverse_transform(data_pca)) ** 2).sum(axis=1)
+    outliers8 = np.where(outliers8 > np.percentile(outliers8, 95), 1, 0)
+    value8 = df.loc[:, option8].tolist()
+    sjt_exception_indices, sjt_exception_value = get_exception_data(outliers8, df_index, value8)
+    fig7 = go.Figure()
+    fig7.add_trace(go.Scatter(x=df_index, y=df.loc[:, option8], name='趋势图', mode='lines'))
+    # 绘制上下限、均值
+    fig7.add_trace(go.Scatter(x=df_index, y=[df.loc[:, option8].mean()] * len(df_index), name='均值',
+                              mode='lines', line_color="red"))
+    fig7.add_trace(
+        go.Scatter(x=sjt_exception_indices, y=sjt_exception_value, mode='markers', name='随机投影',
+                   marker_color='red'))
+    st.plotly_chart(fig7, theme="streamlit", use_container_width=True)
+    st.write(sjt_exception_indices)
+
