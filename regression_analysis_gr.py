@@ -141,7 +141,6 @@ uploaded_file = st.file_uploader("上传xlsx文件")
 if uploaded_file==None:
     st.stop()
 df = pd.read_excel(uploaded_file, engine="openpyxl")
-
 #file_path="D:\回溯数据来源\\成品数据改.xlsx"
 df2 = pd.read_excel(uploaded_file, engine="openpyxl")
 df2=df2.drop_duplicates()
@@ -203,7 +202,7 @@ with contatiner2:
                    '统计量': [k2, w, stat, d], 'P值': [p_k, p_w, critical_values[3], p_d],
                    '判定': [p_kc, p_wc, p_sc, p_dc]}
         df_zt = pd.DataFrame(data_zt)
-        st.markdown("**Note Anderson_darling Test只要统计量大于P值**")
+        st.markdown("**Note Anderson_darling Test只要统计量大于评判值P值就显著**")
         st.write("正态分布检验结果", df_zt)
 
         st.markdown("**正态概率图**")

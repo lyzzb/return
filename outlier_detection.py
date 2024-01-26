@@ -16,6 +16,7 @@ from sklearn.svm import OneClassSVM
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 import  numpy as np
+from collections import Counter
 #streamlit run ceshi.py
 #异常检测，无监督学习
 def get_exception_data(input_list,df_index,df_value):
@@ -124,11 +125,30 @@ with tab3:
         'Kmean请选择其中一个指标作图',
         tuple(options))
     st.write("你选择的是", option3)
-    estimator = KMeans(n_clusters=2)  # 构造聚类器
+    n_clusters = st.selectbox(
+        '聚类数量',
+        ('2', '3'))
+    n_clusters=int(n_clusters)
+    max_iter3 = st.slider('最大迭代数', 1, 500, 300)
+    estimator = KMeans(n_clusters=n_clusters,max_iter=max_iter3)  # 构造聚类器
     estimator.fit(data)  # 聚类
     label_pred = estimator.labels_  # 获取聚类标签
-    value3 = df.loc[:, option3].tolist()
-    Kmean_exception_indices,Kmean_exception_value = get_exception_data(label_pred, df_index,value3)
+    if n_clusters==3:
+     value3 = df.loc[:, option3]
+     value3=value3.to_frame()
+     value3['label']=label_pred.tolist()
+     value3['index']=df_index
+     counter = Counter(label_pred)
+    # 找到出现次数最多的元素,然后找出不是他的元素就是异常值
+     max_count_element = max(counter.keys(), key=lambda x: counter[x])
+     value3=value3[value3['label']!= max_count_element]
+     #批号
+     Kmean_exception_indices=value3['index'].tolist()
+     #值
+     Kmean_exception_value=value3[option3].tolist()
+    if n_clusters==2:
+      value3 = df.loc[:, option3].tolist()
+      Kmean_exception_indices,Kmean_exception_value = get_exception_data(label_pred, df_index,value3)
     fig2 = go.Figure()
     # 绘制用户数折线图
     fig2.add_trace(go.Scatter(x=df_index, y=df.loc[:, option3], name='趋势图', mode='lines'))
