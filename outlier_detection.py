@@ -59,8 +59,6 @@ st.markdown("***需要上传文档，第一列为批号且文档不能出现空�
 options = st.multiselect(
     '选择指标:',
      df.columns.tolist())
-if len(options)==0:
-    st.stop()
 df=df.loc[:, options]
 data = df.values
 tab1, tab2, tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs(["LOF检测", "孤立森林检测", "Kmean检测","DBSCAN检测","高斯混合模型","One-Class SVM","自编码器","随机投影"])
