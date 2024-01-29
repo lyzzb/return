@@ -17,6 +17,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 import  numpy as np
 from collections import Counter
+from pyod.models.abod import ABOD
 #streamlit run ceshi.py
 #异常检测，无监督学习
 def get_exception_data(input_list,df_index,df_value):
@@ -31,25 +32,29 @@ def get_exception_data(input_list,df_index,df_value):
             if input_list[i] == my_set[1]:
                 exception_indices.append(df_index[i])
                 exception_value.append(df_value[i])
+                all_wrong_list.append(df_index[i])
         #第一个是小的
     else:
         for i in range(len(input_list)):
             if input_list[i] == my_set[0]:
                 exception_indices.append(df_index[i])
                 exception_value.append(df_value[i])
+                all_wrong_list.append(df_index[i])
     return   exception_indices,exception_value
 @st.cache_data
 def get_data(file_path,sheet_name,header):
     dff1 = pd.read_excel(file_path, engine="openpyxl")
     return dff1
-
 uploaded_file = st.file_uploader("上传xlsx文件")
 if uploaded_file==None:
     st.stop()
 df = pd.read_excel(uploaded_file, engine="openpyxl")
 #file_path="D:\回溯数据来源\\成品数据改.xlsx"
 #df = pd.read_excel(file_path, engine="openpyxl")
+df2 = pd.read_excel(uploaded_file, engine="openpyxl")
 df=df.drop_duplicates()
+#
+all_wrong_list=[]
 #index
 df_index=df.iloc[:,0]
 #删除index
@@ -62,7 +67,8 @@ options = st.multiselect(
      df.columns.tolist())
 df=df.loc[:, options]
 data = df.values
-tab1, tab2, tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs(["LOF检测", "孤立森林检测", "Kmean检测","DBSCAN检测","高斯混合模型","One-Class SVM","自编码器","随机投影"])
+tab1, tab2, tab3,tab4,tab5,tab6,tab7,tab8,tab9,tab10 = st.tabs(["LOF", "孤立森林", "Kmean","DBSCAN","高斯混合模型","One-Class SVM","自编码器","随机投影","ABOD","总"])
+
 with tab1:
    st.header("LOF异常检测")
    option1 = st.selectbox(
@@ -117,7 +123,7 @@ with tab2:
    # 其他值
    fig1.add_trace(go.Scatter(x=iso_exception_indices, y=iso_exception_value, mode='markers', name='孤立森林异常点',
                              marker_color='red'))
-   st.plotly_chart(fig1, theme="streamlit", use_container_width=True)
+   st.plotly_chart(fig1)
    st.write(iso_exception_indices)
 with tab3:
     st.header("Kmean")
@@ -216,7 +222,9 @@ with tab6:
         tuple(options))
     st.write("你选择的是", option6)
     st.write("0ne-Class SVM参数设定")
-    clf2 = OneClassSVM()
+    nu = st.slider('训练误差', 0.0, 1.0, 0.5)
+    clf2 = OneClassSVM( nu=nu)
+    clf.fit(data)
     outliers2 = clf2.fit_predict(data)
     value6 = df.loc[:, option6].tolist()
     one_class_exception_indices, one_class_exception_value = get_exception_data(outliers2, df_index, value6)
@@ -282,4 +290,31 @@ with tab8:
                    marker_color='red'))
     st.plotly_chart(fig7, theme="streamlit", use_container_width=True)
     st.write(sjt_exception_indices)
-
+with tab9:
+    option9 = st.selectbox(
+        'ABOD请选择其中一个指标作图',
+        tuple(options))
+    st.write("你选择的是", option9)
+    clf_name = 'ABOD'
+    clf = ABOD()
+    clf.fit(data)
+    # 返回训练数据X_train上的异常标签和异常分值
+    y_train_pred = clf.labels_  # 返回训练数据上的分类标签 (0: 正常值, 1: 异常值)
+    y_train_scores = clf.decision_scores_  # 返回训练数据上的异常值 (分值越大越异常)
+    value9 = df.loc[:, option9].tolist()
+    ABOD_exception_indices, ABOD_exception_value = get_exception_data(y_train_pred, df_index, value9)
+    fig7 = go.Figure()
+    fig7.add_trace(go.Scatter(x=df_index, y=df.loc[:, option9], name='趋势图', mode='lines'))
+    # 绘制上下限、均值
+    fig7.add_trace(go.Scatter(x=df_index, y=[df.loc[:, option9].mean()] * len(df_index), name='均值',
+                              mode='lines', line_color="red"))
+    fig7.add_trace(
+        go.Scatter(x=ABOD_exception_indices, y=ABOD_exception_value, mode='markers', name='ABOD',
+                   marker_color='red'))
+    st.plotly_chart(fig7, theme="streamlit", use_container_width=True)
+    st.write(ABOD_exception_indices)
+with tab10:
+    counter = Counter(all_wrong_list)
+    sorted_counter = sorted(filter(lambda x: x[1] >=5, counter.items()), key=lambda x: x[1], reverse=True)
+    for key, value in sorted_counter:
+        st.write(f'元素 {key} 出现的次数是 {value}')

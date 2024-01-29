@@ -5,6 +5,9 @@ import plotly.express as px
 from scipy import stats
 import statsmodels.api as sm
 import  numpy as np
+import seaborn as sns
+from pycaret.datasets import get_data
+from pycaret.classification import *
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
@@ -24,6 +27,7 @@ import matplotlib
 import plotly.figure_factory as ff
 from scipy.special import gamma
 from scipy.stats import norm
+from statsmodels.stats.diagnostic import lilliefors
 #streamlit run regression_analysis.py
 
 def calculate_pooled_standard_deviation(groups):
@@ -116,32 +120,81 @@ def Get_PP(flat_data,USL,LSL):
     ppl=(mean-LSL)/3*std
     ppk=min(ppu,ppl)
     return std,pp,ppu,ppl,ppk
-
-def get_describe(df):
-    desc = df.describe()
-    skew = df.skew()  # 偏度
-    kurt = df.kurt()  # 峰度
-    max_min = df.max() - df.min()  # 极差
-    meain = df.median()
-    count=desc[0]
-    mean=desc[1]
-    std=desc[2]
-    min = desc[3]
-    pe_25 = desc[4]
-    pe_75 = desc[6]
-    max = desc[7]
-    data_zt = {'描述统计1': ["样本数"
-        , "平均数", "最大数","方差","偏度","25%分位数"],
-               '值1': [count, mean, max,df.var(),skew,pe_25],
-               '描述统计2': ["中位数", "最小值","标准差","峰度","极差","75%分位数"],
-               '值2': [meain,min,std,kurt,max_min,pe_75]}
+#判断批号是否异常
+def highlight_short_strings(s):
+    for i in range(len(s) - 7):
+        if s[i:i+8].isdigit():
+          return 'background-color: white'
+    else:
+        return 'background-color: red'
+def get_trend_plot(df_index,df):
+    for i in range(len(df.columns)):
+        fig = go.Figure()
+        # 绘制用户数折线图
+        name=df.columns[i]
+        st.header(name+"趋势图")
+        fig.add_trace(go.Scatter(x=df_index, y=df.iloc[:,i], name=name ,mode='lines+markers'))
+        # 绘制上下限、均值
+        st.plotly_chart(fig)
+def get_zt(data,test):
+  for i in range(len(data.columns)):
+    data_1=data.iloc[:,i]
+    # D'Agostino and Pearson omnibus normality test
+    k2, p_k = stats.normaltest(data_1)
+    p_kc = Get_P_Value(p_k)
+    # Shapiro-Wilk normality test
+    w, p_w = stats.shapiro(data_1)
+    p_wc = Get_P_Value(p_w)
+    # Anderson_darling Test
+    stat, critical_values, p_s = stats.anderson(data_1)
+    if stat<critical_values[2]:
+        p_sc = "符合正态分布"
+    else:
+        p_sc = "不符合正态分布"
+    # 进行Kolmogorov-Smirnov检验
+    d, p_d = stats.kstest(data_1, 'norm')
+    p_dc = Get_P_Value(p_d)
+    # 进行Kolmogorov-Smirnov-lilliefors检验
+    li, p_li = lilliefors(data_1)
+    p_lic = Get_P_Value(p_li)
+    data_zt = {'检测方法': ["D'Agostino and Pearson omnibus normality test"
+        , "Shapiro-Wilk normality test", "Anderson_darling Test", "Kolmogorov-Smirnov Test","Kolmogorov-Smirnov-lilliefors Test"],
+               '统计量': [k2, w, stat, d,li], 'P值': [p_k, p_w, critical_values[2], p_d,p_li],
+               '判定': [p_kc, p_wc, p_sc, p_dc,p_lic]}
     df_zt = pd.DataFrame(data_zt)
-    return df_zt
+    st.markdown("***"+test[i]+"***")
+    st.write(df_zt)
+    Fig = plt.figure(figsize=(6, 4))
+    (norm_quantiles, actual_values), (slope, intercept, r) = stats.probplot(data_1, dist="norm")
+    plt.grid(color='#eee', linestyle='-', linewidth=0.5, zorder=0)
+    ax = plt.gca()
+    # 配置所有轴脊柱的颜色和线型
+    for spine in ax.spines.values():
+        spine.set_color('#808080')
+        spine.set_linestyle('-')
+        spine.set_linewidth(0.5)
+    x = actual_values
+    y = stats.norm.cdf(norm_quantiles)
+    plt.plot(x, y, 'o', color='#0054a6', label='Data Points')
+    # 使用 numpy 的 polyfit 方法从 x 和 y 拟合一条直线
+    m, b = np.polyfit(x, y, 1)
+    # 绘制拟合的直线
+    plt.plot(x, m * x + b, color='#931313', label='')
+    # 设置标签和标题
+    plt.ylim(0, 1)
+    plt.gca().yaxis.set_major_formatter(mticker.PercentFormatter(xmax=1))
+    plt.xlabel('Observations')
+    plt.ylabel('percent')
+    plt.title('Normal Probability Plot')
+    plt.grid(True)
+    st.pyplot(Fig)
 uploaded_file = st.file_uploader("上传xlsx文件")
 if uploaded_file==None:
     st.stop()
+#去掉批号的
 df = pd.read_excel(uploaded_file, engine="openpyxl")
 #file_path="D:\回溯数据来源\\成品数据改.xlsx"
+#没有去掉批号的
 df2 = pd.read_excel(uploaded_file, engine="openpyxl")
 df2=df2.drop_duplicates()
 df=df2.drop_duplicates()
@@ -151,114 +204,44 @@ df_index=df.iloc[:,0]
 df=df.iloc[:,1:]
 #处理数据
 st.title('SPC分析')
-contatiner1=st.container(border=True)
-with contatiner1:
-    st.markdown("**数据明细表**")
-    st.write(df2)
 contatiner2=st.container(border=True)
 with contatiner2:
-    st.markdown("**统计摘要表**")
-    test = st.selectbox(
-        '请选择输入',
-        tuple(df.columns.tolist()))
-    data_1 = df.loc[:, test]
-    st.write("你选择的变量", test)
-    tabb,tabc, tabc0, tabc1, tabc2 = st.tabs(["描述性统计",'控制图', '子图分布见后面散点图', '正态分布检验', "CPK计算"])
+   test = st.multiselect(
+        '请选择输入:',
+        df.columns.tolist())
+   st.write("你选择的变量", test)
+   data_1 = df.loc[:, test]
+   tabb,tabc, tabc0, tabc1, tabc2= st.tabs(["数据明细",'趋势图', '变量分布', '正态分布检验', "CPK计算"])
+   if len(test)>0:
     with tabb:
-        desc = get_describe(data_1)
-        # 输出描述性统计
-        st.write(desc)
+        # 数据明细表
+        st.markdown("**数据明细**")
+        st.write("批号红色部分表示批号异常")
+        st.dataframe(df2.style.applymap(highlight_short_strings, subset=[df2.columns.tolist()[0]]))
     with tabc:
-        fig = go.Figure()
-        # 绘制用户数折线图
-        fig.add_trace(go.Scatter(x=df_index, y=data_1, name='趋势图', mode='lines+markers'))
-        # 绘制上下限、均值
-        st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+        get_trend_plot(df_index,data_1)
     with tabc0:
-        st.header("子图分布见后面散点图")
+        st.markdown("**变量分布**")
+        st.write(data_1.describe())
+        st.markdown("**散点图**")
+        fig=sns.pairplot(data_1)
+        st.pyplot(fig)
+        st.markdown("**箱式图**")
+        fig2 = px.box(data_1,points="all")
+        fig2.update_traces(quartilemethod="exclusive")
+        st.plotly_chart(fig2)
     with tabc1:
         st.markdown("**正态分布检验**")
-        data_2 = np.array([data_1])
-        group_labels = [test]
+        data_2 = data_1.T.values.tolist()
+        group_labels = test
         fig = ff.create_distplot(data_2, group_labels=group_labels)
         st.plotly_chart(fig, theme="streamlit", use_container_width=True)
-        # D'Agostino and Pearson omnibus normality test
-        k2, p_k = stats.normaltest(data_1)
-        p_kc = Get_P_Value(p_k)
-        # Shapiro-Wilk normality test
-        w, p_w = stats.shapiro(data_1)
-        p_wc = Get_P_Value(p_w)
-        # Anderson_darling Test
-        stat, critical_values, p_s = stats.anderson(data_1)
-        if stat >= critical_values[3]:
-            p_sc = "符合正态分布"
-        else:
-            p_sc = "不符合正态分布"
-        # 进行Kolmogorov-Smirnov检验
-        d, p_d = stats.kstest(data_1, 'norm')
-        p_dc = Get_P_Value(p_d)
-        data_zt = {'检测方法': ["D'Agostino and Pearson omnibus normality test"
-            , "Shapiro-Wilk normality test", "Anderson_darling Test", "Kolmogorov-Smirnov检验"],
-                   '统计量': [k2, w, stat, d], 'P值': [p_k, p_w, critical_values[3], p_d],
-                   '判定': [p_kc, p_wc, p_sc, p_dc]}
-        df_zt = pd.DataFrame(data_zt)
         st.markdown("**Note Anderson_darling Test只要统计量大于评判值P值就显著**")
-        st.write("正态分布检验结果", df_zt)
-
-        st.markdown("**正态概率图**")
-        (norm_quantiles, actual_values), (slope, intercept, r) = stats.probplot(data_1, dist="norm")
-        Fig = plt.figure(figsize=(6, 4))
-        plt.grid(color='#eee', linestyle='-', linewidth=0.5, zorder=0)
-        ax = plt.gca()
-        # 配置所有轴脊柱的颜色和线型
-        for spine in ax.spines.values():
-            spine.set_color('#808080')
-            spine.set_linestyle('-')
-            spine.set_linewidth(0.5)
-        x = actual_values
-        y = stats.norm.cdf(norm_quantiles)
-        plt.plot(x, y, 'o', color='#0054a6', label='Data Points')
-        # 使用 numpy 的 polyfit 方法从 x 和 y 拟合一条直线
-        m, b = np.polyfit(x, y, 1)
-        # 绘制拟合的直线
-        plt.plot(x, m * x + b, color='#931313', label='')
-        # 设置标签和标题
-        plt.ylim(0, 1)
-        plt.gca().yaxis.set_major_formatter(mticker.PercentFormatter(xmax=1))
-        plt.xlabel('Observations')
-        plt.ylabel('percent')
-        plt.title('Normal Probability Plot')
-        plt.grid(True)
-        st.pyplot(Fig)
-        # CPK计算
+        st.write("正态分布检验结果")
+        get_zt(data_1,test)
     with tabc2:
         st.markdown("**CPK计算**")
-        mu = np.mean(data_1)
-        sigma = np.std(data_1)
-        st.write("样本均值", mu, "样本方差", sigma)
-        LSL = st.number_input('请输入上限')
-        USL = st.number_input('请输入下限')
-        if LSL != "请输入上限" and USL != "请输入下限":
-            # 整体标准差
-            std, pp, ppu, ppl, ppk = Get_PP(data_1, USL, LSL)
-            # CPM=get_CPM(fdata_1,size,USL,LSL,SL)
-            # size=1
-            sigma, CP, CPU, CPL, CPK = Get_CPK_no_size(data_1, USL, LSL)
-            # if size >1 and type(size)==int:
-            # 组内偏差,size>1,CP,CPU,CPL,CPK
-            # sigma, CP, CPU, CPL, CPK = Get_CPK(data_1, size, USL, LSL)
-            # PPM
-            # df_PPM = get_PPM(data_1, size, USL, LSL)
-            # st.write("PPM",df_PPM)
-            colpp, colcp = st.columns(2)
-            with colpp:
-                data_pp = {'指标': ["Pp", "PPu", "PPl", "PPk", "整体标准差"], '结果': [pp, ppu, ppl, ppk, std]}
-                df_pp = pd.DataFrame(data_pp)
-                st.write("整体能力", df_pp)
-            with colcp:
-                data_CP = {'指标': ["Cp", "Cpu", "CPl", "CPk", "组内标准差"], '结果': [CP, CPU, CPL, CPK, sigma]}
-                df_CP = pd.DataFrame(data_CP)
-                st.write("潜在(组内能力)", df_CP)
+        st.write("有点问题")
 container4 = st.container(border=True)
 with container4:
  st.markdown("***相关系数分析***.")
@@ -268,7 +251,7 @@ with container4:
  if len(options)!=0:
   st.write("你选择的是:", options)
   data = df.loc[:, options]
-  tab1, tab2, tab3,tab4= st.tabs(["Pearson相关系数", "Kendall相关系数", "Spearman相关系数","散点图"])
+  tab1, tab2, tab3= st.tabs(["Pearson相关系数", "Kendall相关系数", "Spearman相关系数"])
   with tab1:
     pearson = data.corr(method="pearson")
     # 绘制热力图
@@ -290,12 +273,6 @@ with container4:
     fig3 = px.imshow(spearman, text_auto=True)
     st.plotly_chart(fig3, theme="streamlit", use_container_width=True)
     st.write("|r|越大越相关")
-  with tab4:
-    if len(options)==2:
-     fig4 = px.scatter(data, x=data.columns[0], y=data.columns[1], trendline="ols")
-     st.plotly_chart(fig4, theme="streamlit", use_container_width=True)
-    else:
-        st.write("指标不为2")
 container5=st.container(border=True)
 with container5:
  st.markdown("***回归分析***.")
@@ -334,6 +311,8 @@ with container5:
          model = sm.OLS(data_y, data_x.drop(option_y, axis=1)).fit()
       st.write(model.summary())
   with tab7:
+    col01, col02 = st.columns(2)
+    with col01:
       data_x=data_x.drop(option_y, axis=1)
       data_x=data_x.drop("const", axis=1)
       X = np.array(data_x)
@@ -341,19 +320,34 @@ with container5:
       # 产生多项式
       option_degree = st.selectbox(
           '请选择阶数',
-          (2,3,4,5))
-      poly = PolynomialFeatures(degree=option_degree)
-      poly_features = poly.fit_transform(X)
-      poly_regression = LinearRegression()
-      poly_regression.fit(poly_features, y)
-      for i in range(len(data_x.columns)):
-        fig = plt.figure()
-        plt.title(data_x.columns[i]+"+"+option_y)
-        plt.scatter(X[:, i], y, color='red')
-        plt.xlabel(data_x.columns[i])
-        plt.ylabel(option_y)
-        plt.plot(X[:, i], poly_regression.predict(poly_features))
-        st.pyplot(fig)
+          (2,3))
+      poly_features = PolynomialFeatures(degree=option_degree)
+      X_poly = poly_features.fit_transform(X)
+      feature_name=poly_features.get_feature_names_out()
+      # 创建线性回归模型并拟合数据
+      model = LinearRegression()
+      model.fit(X_poly, y)
+      coef=model.coef_
+      dffe_name = pd.DataFrame(feature_name)
+      dffe_name['系数']=coef
+      st.write( dffe_name)
+      y_pred = model.predict(X_poly)
+      # 计算并打印均方误差 (MSE) 以评估模型的性能
+      mse = mean_squared_error(y, y_pred)
+      st.write('Mean Squared Error:', mse)
+      st.write("多项式回归的R^2值为:", r2_score(y, y_pred))
+    with col02:
+     try :
+      input_sample = st.text_input('输入预测数据1', '用英文逗号隔开,注意位数一样')
+      if input_sample!='用英文逗号隔开,注意位数一样':
+        input_sample = input_sample.split(",")
+        input_sample = [float(x) for x in input_sample]
+        input_sample = np.array([input_sample])
+        input_sample = poly_features.transform(input_sample)
+        y_pred = model.predict(input_sample)
+        st.write("预测结果:", y_pred)
+     except Exception as e:
+         st.write(e)
   with tab8:
     col1, col2 = st.columns(2)
     with col1:
@@ -538,6 +532,9 @@ with container5:
       # 输出预测结果和实际值的比较
       st.write("预测值:", y_pred)
       st.write("实际值:", y_test)
+
+      #pip install -U matplotlib==3.6 -i https://pypi.tuna.tsinghua.edu.cn/simple
+      #open-interpreter
 
 
 
