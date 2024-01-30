@@ -29,7 +29,7 @@ from scipy.special import gamma
 from scipy.stats import norm
 from statsmodels.stats.diagnostic import lilliefors
 #streamlit run regression_analysis.py
-
+from sklearn.inspection import PartialDependenceDisplay
 def calculate_pooled_standard_deviation(groups):
     means = [np.mean(group) for group in groups]
     sizes = [len(group) for group in groups]
@@ -188,6 +188,8 @@ def get_zt(data,test):
     plt.title('Normal Probability Plot')
     plt.grid(True)
     st.pyplot(Fig)
+
+st.set_option('deprecation.showPyplotGlobalUse', False)
 uploaded_file = st.file_uploader("上传xlsx文件")
 if uploaded_file==None:
     st.stop()
@@ -371,6 +373,8 @@ with container5:
       st.write("回归树的MSE值为:", mse)
       st.write("回归树的R^2值为:", r2_score(y_test, y_pred))
       st.write(DecisionTreeRe_imp)
+      PartialDependenceDisplay.from_estimator(regressor, X8, options_x)
+      st.pyplot()
     with col2:
       input_sample = st.text_input('输入预测数据', '用英文逗号隔开,注意位数一样')
       st.write(input_sample)
@@ -403,6 +407,10 @@ with container5:
       st.write("随机森林的R^2值为:", r2_score(y_test, y_pred))
       RandomForestRe_imp = pd.DataFrame({'feature': X9.columns, "重要程度": regressor.feature_importances_})
       st.write(RandomForestRe_imp)
+
+
+      PartialDependenceDisplay.from_estimator(regressor,X9 ,options_x)
+      st.pyplot()
     with col4:
         input_sample = st.text_input('输入随机森林预测数据', '用英文逗号隔开,注意位数一样')
         st.write(input_sample)
@@ -435,6 +443,8 @@ with container5:
       mse = mean_squared_error(y_test, y_pred)
       st.write("Mean Squared Error:", mse)
       st.write("支持向量的R^2值为:", r2_score(y_test, y_pred))
+      PartialDependenceDisplay.from_estimator(svr, X10, options_x)
+      st.pyplot()
     with col6:
         input_sample = st.text_input('输入支持向量机预测数据', '用英文逗号隔开,注意位数一样')
         st.write(input_sample)
@@ -470,6 +480,8 @@ with container5:
       mse = mean_squared_error(y_test, y_pred)
       st.write("Mean Squared Error:", mse)
       st.write("神经网络的R^2值为:", r2_score(y_test, y_pred))
+      PartialDependenceDisplay.from_estimator(mlp, X11, options_x)
+      st.pyplot()
     with col8:
         input_sample = st.text_input('输入神经网络预测数据', '用英文逗号隔开,注意位数一样')
         st.write(input_sample)
@@ -512,6 +524,8 @@ with container5:
       rmse = np.sqrt(mean_squared_error(y_test, y_pred))
       st.write("RMSE: %.4f" % rmse)
       st.write("XGBoost的R^2值为:", r2_score(y_test, y_pred))
+      PartialDependenceDisplay.from_estimator(model, X12, options_x)
+      st.pyplot()
     with col10:
         input_sample = st.text_input('输入XGBoost预测数据', '用英文逗号隔开,注意位数一样')
         st.write(input_sample)
