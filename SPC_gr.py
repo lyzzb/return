@@ -6,6 +6,8 @@ import  pandas as pd
 from collections import defaultdict
 from graphviz import Digraph
 #streamlit run SPC_text.py
+st.set_page_config(layout="wide")
+
 def dfs(graph, start, path=[]):
     path = path + [start]
     #print(path)  # 打印当前路径，你可以选择保存到列表或其他地方
