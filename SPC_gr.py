@@ -66,7 +66,6 @@ def get_lims_data(uploaded_files):
         df = df.drop(df[df['批号'].str.contains('油系')].index)
         df = df.drop(df[df['批号'].str.contains('JS')].index)
         df = df.drop(df[df['批号'].str.contains('石墨化')].index)
-        df = df.drop(df[df['批号'].str.contains('YF')].index)
         df = df.drop(df[df['批号'].str.contains('SSW')].index)
         df = df.drop(df[df['批号'].str.contains('粉压')].index)
         df = df.drop(df[df['批号'].str.len() < 8].index)
@@ -87,10 +86,7 @@ def get_lims_data(uploaded_files):
 start_node = st.text_input('请输入要追溯的批号', '批号')
 st.write('当前输入的批号是', start_node)
 uploaded_file = st.file_uploader("请上传总表")
-#检测数据
-
 uploaded_files = st.file_uploader("请上传检测数据", accept_multiple_files=True)
-uploaded_files=["D:\limsdownload\M12B.xlsx","D:\limsdownload\\COA00401_原始数据台账_deerta_Ver1.0.1 (1).xlsx"]
 check_lims_data = st.checkbox('检测数据追溯')
 st.write("没查到可能是1：数据质量不行.2.真的没有对应批次.3.标点符号(括号、空格)")
 output_data=[]
