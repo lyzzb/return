@@ -8,9 +8,9 @@ add_page_title()
 # should be
 show_pages(
     [
-
         Page("SPC_gr.py", "真实追溯"),
         Page("outlier_detection.py", "异常检测"),
-        Page("regression_analysis_gr.py", "回归分析")
+        Page("regression_analysis_gr.py", "回归分析"),
+        Page("Fibergr.py", "纤维异物匹配")
     ]
 )
